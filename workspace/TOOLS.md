@@ -39,4 +39,11 @@ Things like:
 
 ---
 
+## SOT Config
+
+- **SOT_TEMPLATE_REPO:** `https://github.com/thanh-dong/sot-template.git`
+  _(Fork this and update the URL if you use a custom sot-template)_
+
+---
+
 Add whatever helps you do your job. This is your cheat sheet.
