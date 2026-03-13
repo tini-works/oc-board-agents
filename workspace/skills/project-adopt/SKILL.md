@@ -2,26 +2,29 @@
 name: project-adopt
 description: |
   Adopt an existing codebase by analyzing its structure and automatically generating
-  a c3-governed Source of Truth (SOT) architecture repository.
+  a full SOT repository conforming to sot-template structure.
   Use when: user says "adopt this project", "create SOT for my codebase",
   "analyze and document this project", "reverse-engineer architecture",
   "onboard this repo into SOT", "build architecture docs from existing code",
   or provides a project path and asks for SOT / architecture documentation.
-  Handles the full pipeline: analyze → propose → scaffold c3 SOT → validate → handoff.
+  Handles the full pipeline: analyze → propose → scaffold full sot-template → A2UI JSONL → validate → handoff.
   Works standalone (no pre-configured SOT repo needed). Produces a ready-to-use
-  SOT repo that sot-manager skill can then manage for ongoing changes.
+  SOT repo (sot-template structure) that sot-manager skill can then manage for ongoing changes.
 ---
 
 # Project Adopt
 
-Adopt an existing project into the SOT + c3 architecture system in one guided flow.
+Adopt an existing project into the full sot-template structure in one guided flow.
+
+Output must match `sot-template` exactly — including `docs/ui/a2ui/` JSONL specs,
+`docs/api/`, `docs/infra/env.md`, all 5 refs, and the handoff schema.
 
 ## Paths
 
 | Keyword | Phase | Reference |
 |---------|-------|-----------|
 | analyze, scan, inspect, "what's in", "tell me about" | **Analyze only** | `references/analyze.md` |
-| adopt, onboard, "create SOT", "build SOT", "scaffold SOT" | **Full pipeline** (all 3 phases) | all refs |
+| adopt, onboard, "create SOT", "build SOT", "scaffold SOT" | **Full pipeline** (all 4 phases) | all refs |
 | scaffold, "create c3", "build c3 docs" | **Scaffold only** (skip analyze) | `references/scaffold.md` |
 | verify, validate, "check SOT", handoff | **Verify only** | `references/verify.md` |
 
@@ -49,17 +52,24 @@ If user says "just do it" or denies questions → `ASSUMPTION_MODE = true`, use 
 ```bash
 bash <skill-dir>/scripts/analyze_project.sh $PROJECT_PATH
 ```
-Deep-scan entry points, detect containers, components, refs.
+Deep-scan entry points, detect framework + router + state + styling, identify containers/components/refs.
 → Present proposal → **wait for confirmation** (unless ASSUMPTION_MODE).
 Details: `references/analyze.md`
 
 ### Phase 2 — Scaffold
-Init c3, create containers/components/refs, fill code-map, validate.
+Clone sot-template, init c3, create containers/components/refs, fill code-map.
+Scaffold all docs: `docs/api/`, `docs/infra/env.md`, `docs/decisions/`.
 → Run `c3x check` — must pass before phase 3.
 Details: `references/scaffold.md`
 
-### Phase 3 — Verify & Handoff
-Present final SOT map + coverage. Emit handoff JSON. Save config to TOOLS.md.
+### Phase 3 — A2UI JSONL Generation
+Convert existing frontend implementation into A2UI JSONL specs.
+5 sub-passes per feature: route inventory → component tree → state extraction → navigation graph → AC synthesis.
+Produces: `docs/ui/a2ui/<feature>.screens.jsonl` + `docs/ui/a2ui/<feature>.flow.jsonl` + `design-system.jsonl`.
+Details: `references/scaffold.md` (A2UI section)
+
+### Phase 4 — Verify & Handoff
+Present final SOT map + coverage. Emit handoff JSON conforming to `handoffs/SCHEMA.md`. Save config to TOOLS.md.
 Details: `references/verify.md`
 
 ---
