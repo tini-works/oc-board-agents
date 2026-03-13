@@ -1,0 +1,44 @@
+{
+  "_comment": "This patch is applied to ~/.openclaw/openclaw.json by install.sh",
+  "agents": {
+    "defaults": {
+      "memorySearch": {
+        "enabled": true,
+        "provider": "local",
+        "fallback": "none",
+        "local": {
+          "modelPath": "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf"
+        },
+        "extraPaths": [
+          "MEMORY.md",
+          "SOUL.md",
+          "USER.md",
+          "TOOLS.md",
+          "AGENTS.md",
+          "skills"
+        ]
+      }
+    },
+    "board": {
+      "model": "anthropic/claude-haiku-3-5",
+      "systemPrompt": "You are OpenClaw, an AI assistant embedded in a collaborative board. Help users plan, write docs, design screens, and build things. Be concise and use markdown.",
+      "tools": {
+        "profile": "none"
+      }
+    }
+  },
+  "gateway": {
+    "http": {
+      "endpoints": {
+        "chatCompletions": {
+          "enabled": true
+        }
+      }
+    },
+    "tools": {
+      "allow": [
+        "sessions_send"
+      ]
+    }
+  }
+}

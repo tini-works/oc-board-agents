@@ -1,0 +1,42 @@
+# TOOLS.md - Local Notes
+
+Skills define _how_ tools work. This file is for _your_ specifics — the stuff that's unique to your setup.
+
+## What Goes Here
+
+Things like:
+
+- Camera names and locations
+- SSH hosts and aliases
+- Preferred voices for TTS
+- Speaker/room names
+- Device nicknames
+- Anything environment-specific
+
+---
+
+## GitHub
+
+- **Token:** `{{GITHUB_PAT}}`
+- **User/Org:** `{{GITHUB_USER}}`
+- **Repos:**
+  - `{{GITHUB_USER}}/prev-cli` — forked prev-cli with board feature
+
+---
+
+## chub (Context Hub CLI)
+
+- **Binary:** `/usr/local/bin/chub` or `$(npm root -g)/.bin/chub`
+- **Purpose:** Fetch curated, versioned API docs for coding agents before writing code
+- **Skill:** `skills/get-api-docs/SKILL.md`
+
+---
+
+## prev-cli Config
+
+- **PROJECT_PATH:** `{{PREV_CLI_PATH}}`
+- **C3X:** `~/.openclaw/workspace/skills/c3/bin/c3x.sh`
+
+---
+
+Add whatever helps you do your job. This is your cheat sheet.

@@ -1,0 +1,13 @@
+# Never commit credentials
+.env
+.env.local
+*.secret
+
+# macOS
+.DS_Store
+
+# Backup files created by installer
+*.bak
+
+# c3 compiled binaries (downloaded by installer)
+workspace/skills/c3/bin/c3x-*
