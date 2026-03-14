@@ -4,20 +4,29 @@
 
 ## What's included
 
-| Component | Description |
-|-----------|-------------|
-| **Workspace files** | SOUL.md, AGENTS.md, USER.md, TOOLS.md, MEMORY.md, HEARTBEAT.md |
-| **c3** | Architecture documentation tool |
-| **prev-cli** | Docs site + infinite board canvas |
-| **sot-manager** | SOT lifecycle manager (draft → approve → merge → handoff) |
-| **project-adopt** | Reverse-engineer a codebase into a c3-governed SOT |
+### Skills
+
+| Skill | Description |
+|-------|-------------|
+| **c3** | Architecture documentation tool (c3 graph, code-map) |
+| **prev-cli** | Docs site + infinite board canvas + A2UIPreview |
+| **sot-manager** | SOT lifecycle: draft → approve → merge → handoff |
+| **project-adopt** | Reverse-engineer a codebase into a SOT (6-pass, includes A2UI JSONL) |
 | **get-api-docs** | Fetch third-party API docs via chub before writing code |
 | **qmd** | BM25 + semantic search across workspace markdown |
 | **skill-creator-ultra** | Design and package new AI skills |
 
+### Board Agents
+
+| Agent | Trigger | Role |
+|-------|---------|------|
+| **board** | Automatic — every board session | Discussion host, SOT-aware facilitator. Read-only. |
+| **sot-scribe** | `@sot-scribe` in board chat | Collects insights, generates c3/A2UI/API/data-model artifacts |
+| **sot-editor** | Annotation thread → Request Update | Makes targeted edits to specific artifacts |
+
 ## Prerequisites
 
-- [OpenClaw](https://openclaw.ai) installed and configured (`openclaw configure` done)
+- [OpenClaw](https://openclaw.ai) installed and **configured** (`openclaw configure` done — this sets your API key)
 - `git`
 - `python3`
 - `bun` or `node`
@@ -31,46 +40,55 @@ chmod +x install.sh
 ./install.sh
 ```
 
-The installer will prompt you for:
-- **GitHub PAT** — for cloning private repos and API calls
-- **GitHub username** — for forking/cloning prev-cli
-- **Anthropic API key** — injected into openclaw.json (optional if already configured)
+The installer prompts for:
+- **GitHub PAT** — for cloning private repos (leave blank to skip)
+- **GitHub username** — for cloning your prev-cli fork (leave blank to skip)
 
-> Credentials are applied directly to your local files and **never stored in this repo**.
+> No API key needed — `openclaw configure` already handles that.
+
+> Credentials are applied to your local files only and **never stored in this repo**.
 
 ## What the installer does
 
-1. Copies workspace files to `~/.openclaw/workspace/`
-2. Installs all 7 skills
-3. Deep-merges `config/openclaw.patch.json` into `~/.openclaw/openclaw.json`
-4. *(Optional)* Clones and builds your `prev-cli` fork
-5. *(Optional)* Installs `chub` CLI for API docs
-6. *(Optional)* Restarts the OpenClaw gateway
+1. Copies workspace files to `~/.openclaw/workspace/` (skips existing)
+2. Installs all 7 skills (skips existing)
+3. Installs board agent workspaces (`workspace-sot-scribe/`, `workspace-sot-editor/`)
+4. Deep-merges `config/openclaw.patch.json` into `~/.openclaw/openclaw.json`
+   - Appends sot-scribe and sot-editor to `agents.list` (never wipes existing agents)
+   - Upgrades board agent to sonnet + SOT-aware system prompt
+5. *(Optional)* Downloads c3x binary
+6. *(Optional)* Clones and builds your `prev-cli` fork
+7. *(Optional)* Installs `chub` CLI
+8. *(Optional)* Seeds memory search index (`openclaw memory index --force`)
+9. *(Optional)* Restarts the OpenClaw gateway
 
 ## After install
 
 1. Edit `~/.openclaw/workspace/USER.md` — tell the agent who you are
 2. Edit `~/.openclaw/workspace/SOUL.md` — customise the persona
-3. Start a prev-cli docs server:
+3. Start a board:
    ```bash
    cd ~/.openclaw/workspace/prev-cli
-   bun dist/cli.js -c /path/to/your/docs -p 3001
+   bun dist/cli.js -c /path/to/sot-repo/docs -p 3001
    ```
-4. Open `http://localhost:3001` — your docs site + board canvas is live
+4. Open `http://localhost:3001` → **Board** → start discussing
+5. Tag **@sot-scribe** when ready to generate SOT artifacts
+6. Annotate artifacts → **Request Update** → **@sot-editor** makes the edit
 
 ## Re-running
 
-The installer is idempotent: existing workspace files are backed up (`.bak`), existing skills are skipped. Safe to run again after an update.
+The installer is idempotent: existing workspace files and skills are skipped. Safe to run again after a sot-starter update.
 
 ## Structure
 
 ```
 sot-starter/
-├── install.sh                    ← entry point
+├── install.sh                      ← entry point
 ├── config/
-│   └── openclaw.patch.json       ← settings merged into openclaw.json
+│   └── openclaw.patch.json         ← merged into ~/.openclaw/openclaw.json
 ├── workspace/
-│   ├── SOUL.md / AGENTS.md / ...
+│   ├── SOUL.md / AGENTS.md / ...   ← main agent persona files
+│   ├── TOOLS.md                    ← credentials + SOT config template
 │   └── skills/
 │       ├── c3/
 │       ├── prev-cli/
@@ -79,6 +97,8 @@ sot-starter/
 │       ├── get-api-docs/
 │       ├── qmd/
 │       └── skill-creator-ultra/
+├── workspace-sot-scribe/           ← Scribe agent persona (SOUL, AGENTS, IDENTITY)
+├── workspace-sot-editor/           ← Editor agent persona (SOUL, AGENTS, IDENTITY)
 └── README.md
 ```
 

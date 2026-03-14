@@ -3,8 +3,8 @@ set -euo pipefail
 
 # ─────────────────────────────────────────────
 #  sot-starter installer
-#  Sets up OpenClaw workspace, skills, and prev-cli
-#  Requirements: OpenClaw already installed, git, node/bun, python3
+#  Sets up OpenClaw workspace, skills, board agents, and prev-cli
+#  Requirements: OpenClaw already installed and configured, git, node/bun, python3
 # ─────────────────────────────────────────────
 
 BOLD="\033[1m"
@@ -15,7 +15,8 @@ RED="\033[0;31m"
 RESET="\033[0m"
 
 WORKSPACE="${OPENCLAW_WORKSPACE:-$HOME/.openclaw/workspace}"
-OPENCLAW_CONFIG="$HOME/.openclaw/openclaw.json"
+OPENCLAW_HOME="$(dirname "$WORKSPACE")"
+OPENCLAW_CONFIG="$OPENCLAW_HOME/openclaw.json"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 print_header() {
@@ -26,11 +27,11 @@ print_header() {
   echo ""
 }
 
-step() { echo -e "${GREEN}${BOLD}▶ $1${RESET}"; }
-warn() { echo -e "${YELLOW}⚠  $1${RESET}"; }
-info() { echo -e "   ${CYAN}$1${RESET}"; }
+step()    { echo -e "${GREEN}${BOLD}▶ $1${RESET}"; }
+warn()    { echo -e "${YELLOW}⚠  $1${RESET}"; }
+info()    { echo -e "   ${CYAN}$1${RESET}"; }
 success() { echo -e "${GREEN}✓ $1${RESET}"; }
-fail() { echo -e "${RED}✗ $1${RESET}"; exit 1; }
+fail()    { echo -e "${RED}✗ $1${RESET}"; exit 1; }
 
 confirm() {
   read -r -p "$(echo -e "${YELLOW}$1 [y/N]:${RESET} ")" ans
@@ -59,7 +60,7 @@ print_header
 
 step "Checking requirements..."
 command -v python3 >/dev/null 2>&1 || fail "python3 is required"
-command -v git >/dev/null 2>&1     || fail "git is required"
+command -v git     >/dev/null 2>&1 || fail "git is required"
 
 HAVE_BUN=false; HAVE_NODE=false
 command -v bun  >/dev/null 2>&1 && HAVE_BUN=true
@@ -74,35 +75,40 @@ echo ""
 step "Gathering credentials (stored only in your local files, never in this repo)"
 echo ""
 
-GITHUB_PAT=$(read_secret  "  GitHub PAT (leave blank to skip): ")
-GITHUB_USER=$(read_input  "  GitHub username (leave blank to skip): ")
-ANTHROPIC_KEY=""  # Already configured via 'openclaw configure' — not needed here
-
+GITHUB_PAT=$(read_secret "  GitHub PAT (leave blank to skip): ")
+GITHUB_USER=$(read_input "  GitHub username (leave blank to skip): ")
 echo ""
 
 # ─── Workspace files ──────────────────────────
 step "Installing workspace files → $WORKSPACE"
 mkdir -p "$WORKSPACE/memory"
 
-# Copy all workspace files (do not overwrite existing personalised ones)
 for f in AGENTS.md SOUL.md USER.md IDENTITY.md MEMORY.md HEARTBEAT.md; do
   src="$SCRIPT_DIR/workspace/$f"
   dst="$WORKSPACE/$f"
   if [[ -f "$dst" ]]; then
-    warn "$f already exists — skipping (backup at $dst.bak)"
-    cp "$dst" "$dst.bak"
+    warn "$f already exists — skipping"
   else
     cp "$src" "$dst"
     info "Installed $f"
   fi
 done
 
-# TOOLS.md — always install from template, then substitute
+# TOOLS.md — install from template, substitute credentials, clean leftover placeholders
 TOOLS_DST="$WORKSPACE/TOOLS.md"
+if [[ -f "$TOOLS_DST" ]]; then
+  cp "$TOOLS_DST" "$TOOLS_DST.bak"
+  warn "TOOLS.md already exists — overwriting (backup at TOOLS.md.bak)"
+fi
 cp "$SCRIPT_DIR/workspace/TOOLS.md" "$TOOLS_DST"
-if [[ -n "$GITHUB_PAT" ]];  then sed -i '' "s|{{GITHUB_PAT}}|$GITHUB_PAT|g"   "$TOOLS_DST" 2>/dev/null || sed -i "s|{{GITHUB_PAT}}|$GITHUB_PAT|g"   "$TOOLS_DST"; fi
-if [[ -n "$GITHUB_USER" ]]; then sed -i '' "s|{{GITHUB_USER}}|$GITHUB_USER|g" "$TOOLS_DST" 2>/dev/null || sed -i "s|{{GITHUB_USER}}|$GITHUB_USER|g" "$TOOLS_DST"; fi
-info "Installed TOOLS.md (credentials substituted)"
+
+_sed() { sed -i '' "$1" "$TOOLS_DST" 2>/dev/null || sed -i "$1" "$TOOLS_DST"; }
+
+[[ -n "$GITHUB_PAT" ]]  && _sed "s|{{GITHUB_PAT}}|$GITHUB_PAT|g"   || _sed "s|{{GITHUB_PAT}}||g"
+[[ -n "$GITHUB_USER" ]] && _sed "s|{{GITHUB_USER}}|$GITHUB_USER|g" || _sed "s|{{GITHUB_USER}}||g"
+# PREV_CLI_PATH placeholder filled later; clean it now as a fallback
+_sed "s|{{PREV_CLI_PATH}}||g"
+info "Installed TOOLS.md"
 success "Workspace files done"
 
 # ─── Skills ───────────────────────────────────
@@ -116,7 +122,6 @@ for skill_dir in "$SCRIPT_DIR/workspace/skills"/*/; do
     warn "Skill '$skill_name' already exists — skipping"
   else
     cp -r "$skill_dir" "$dst"
-    # Make any bin/ scripts executable
     [[ -d "$dst/bin" ]] && chmod +x "$dst/bin"/* 2>/dev/null || true
     info "Installed skill: $skill_name"
   fi
@@ -124,9 +129,7 @@ done
 success "Skills installed"
 
 # ─── Agent workspaces ─────────────────────────
-step "Installing agent workspaces..."
-
-OPENCLAW_HOME="$(dirname "$WORKSPACE")"
+step "Installing board agent workspaces..."
 
 for agent in sot-scribe sot-editor; do
   src="$SCRIPT_DIR/workspace-${agent}"
@@ -152,28 +155,33 @@ success "Agent workspaces installed"
 # ─── openclaw.json patch ──────────────────────
 step "Patching openclaw.json..."
 
-PATCH_SCRIPT=$(cat <<'PYEOF'
-import json, sys, re
+python3 - "$OPENCLAW_CONFIG" "$SCRIPT_DIR/config/openclaw.patch.json" "$OPENCLAW_HOME" <<'PYEOF'
+import json, sys
 
-config_path  = sys.argv[1]
-patch_path   = sys.argv[2]
+config_path   = sys.argv[1]
+patch_path    = sys.argv[2]
 openclaw_home = sys.argv[3]
 
 with open(config_path) as f:
     config = json.load(f)
 with open(patch_path) as f:
-    # Substitute {{OPENCLAW_HOME}} placeholder before parsing
     raw = f.read().replace("{{OPENCLAW_HOME}}", openclaw_home)
     patch = json.loads(raw)
 
-# Remove meta comment key if present
 patch.pop("_comment", None)
+
+def merge_list_by_id(base_list, overlay_list):
+    """Append new agents by id — never wipe existing ones."""
+    existing_ids = {a["id"] for a in base_list if "id" in a}
+    for agent in overlay_list:
+        if agent.get("id") not in existing_ids:
+            base_list.append(agent)
+    return base_list
 
 def deep_merge(base, overlay):
     for k, v in overlay.items():
-        # For agents.list: replace the whole array (not element-merge)
         if k == "list" and isinstance(v, list):
-            base[k] = v
+            base[k] = merge_list_by_id(base.get(k, []), v)
         elif k in base and isinstance(base[k], dict) and isinstance(v, dict):
             deep_merge(base[k], v)
         else:
@@ -181,19 +189,11 @@ def deep_merge(base, overlay):
 
 deep_merge(config, patch)
 
-# Inject Anthropic key if provided
-anthropic_key = sys.argv[4] if len(sys.argv) > 4 else ""
-if anthropic_key:
-    config.setdefault("auth", {}).setdefault("profiles", {}) \
-        .setdefault("anthropic:default", {})["apiKey"] = anthropic_key
-
 with open(config_path, "w") as f:
     json.dump(config, f, indent=2)
 print("Patch applied")
 PYEOF
-)
 
-python3 -c "$PATCH_SCRIPT" "$OPENCLAW_CONFIG" "$SCRIPT_DIR/config/openclaw.patch.json" "$OPENCLAW_HOME" "$ANTHROPIC_KEY"
 success "openclaw.json patched"
 
 # ─── c3x binary ───────────────────────────────
@@ -202,7 +202,7 @@ step "Installing c3x binary..."
 C3_VERSION=$(cat "$WORKSPACE/skills/c3/bin/VERSION" 2>/dev/null || echo "6.6.0")
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
-[[ "$ARCH" == "x86_64" ]] && ARCH="amd64"
+[[ "$ARCH" == "x86_64" ]]              && ARCH="amd64"
 [[ "$ARCH" == "arm64" || "$ARCH" == "aarch64" ]] && ARCH="arm64"
 
 C3X_BIN="$WORKSPACE/skills/c3/bin/c3x-${C3_VERSION}-${OS}-${ARCH}"
@@ -218,7 +218,7 @@ else
     ln -sf "$C3X_BIN" "$C3X_LINK"
     success "c3x v${C3_VERSION} installed (${OS}-${ARCH})"
   else
-    warn "Could not download c3x binary — you can install manually later"
+    warn "Could not download c3x binary — install manually later"
     warn "URL: $C3X_URL"
   fi
 fi
@@ -234,24 +234,17 @@ if [[ -n "$GITHUB_USER" ]] && confirm "Clone and build prev-cli fork (${GITHUB_U
     warn "prev-cli already exists at $PREV_CLI_PATH — skipping clone"
   else
     CLONE_URL="https://github.com/${GITHUB_USER}/prev-cli.git"
-    if [[ -n "$GITHUB_PAT" ]]; then
-      CLONE_URL="https://${GITHUB_PAT}@github.com/${GITHUB_USER}/prev-cli.git"
-    fi
+    [[ -n "$GITHUB_PAT" ]] && CLONE_URL="https://${GITHUB_PAT}@github.com/${GITHUB_USER}/prev-cli.git"
     git clone "$CLONE_URL" "$PREV_CLI_PATH"
     info "Cloned to $PREV_CLI_PATH"
   fi
 
   cd "$PREV_CLI_PATH"
-  if $HAVE_BUN; then
-    bun install && bun run build
-  else
-    npm install && npm run build
-  fi
+  if $HAVE_BUN; then bun install && bun run build
+  else npm install && npm run build; fi
 
-  # Update TOOLS.md with prev-cli path
-  sed -i '' "s|{{PREV_CLI_PATH}}|$PREV_CLI_PATH|g" "$TOOLS_DST" 2>/dev/null \
-    || sed -i "s|{{PREV_CLI_PATH}}|$PREV_CLI_PATH|g" "$TOOLS_DST"
-
+  # Fill PREV_CLI_PATH placeholder in TOOLS.md
+  _sed "s|{{PREV_CLI_PATH}}|$PREV_CLI_PATH|g"
   success "prev-cli built at $PREV_CLI_PATH"
 fi
 
@@ -267,11 +260,22 @@ if confirm "Install chub CLI (API docs fetcher)?"; then
   success "chub installed"
 fi
 
+# ─── Memory index ─────────────────────────────
+echo ""
+if confirm "Seed memory search index now? (recommended, takes ~1 min)"; then
+  step "Indexing memory..."
+  openclaw memory index --force 2>/dev/null \
+    && success "Memory index seeded" \
+    || warn "Could not index memory — run 'openclaw memory index --force' manually later"
+fi
+
 # ─── Restart OpenClaw ─────────────────────────
 echo ""
-if confirm "Restart OpenClaw to apply config changes?"; then
+if confirm "Restart OpenClaw gateway to apply config?"; then
   step "Restarting OpenClaw..."
-  openclaw gateway restart || warn "Could not restart — please run 'openclaw gateway restart' manually"
+  openclaw gateway restart \
+    && success "Gateway restarted" \
+    || warn "Could not restart — run 'openclaw gateway restart' manually"
 fi
 
 # ─── Summary ──────────────────────────────────
@@ -285,13 +289,13 @@ echo -e "  Skills    : c3, prev-cli, sot-manager, project-adopt,"
 echo -e "              get-api-docs, qmd, skill-creator-ultra"
 echo ""
 echo -e "  Board agents:"
-echo -e "    ${BOLD}board${RESET}       — discussion host (auto, every board session)"
-echo -e "    ${BOLD}sot-scribe${RESET}  — insight collector + SOT generator (@sot-scribe)"
-echo -e "    ${BOLD}sot-editor${RESET}  — targeted artifact editor (annotation threads)"
+echo -e "    ${BOLD}board${RESET}       — discussion host (automatic on every board session)"
+echo -e "    ${BOLD}sot-scribe${RESET}  — insight collector + SOT artifact generator (@sot-scribe)"
+echo -e "    ${BOLD}sot-editor${RESET}  — targeted artifact editor (annotation thread updates)"
 echo ""
 echo -e "  ${YELLOW}Next steps:${RESET}"
 echo -e "  1. Edit ${BOLD}$WORKSPACE/USER.md${RESET} — tell the agent about yourself"
 echo -e "  2. Edit ${BOLD}$WORKSPACE/SOUL.md${RESET} — customise the persona"
-echo -e "  3. Start a docs server: ${BOLD}bun dist/cli.js -c /path/to/docs -p 3001${RESET}"
-echo -e "  4. Open a board, start discussing, tag @sot-scribe when ready to generate"
+echo -e "  3. Start a board: ${BOLD}bun dist/cli.js -c /path/to/sot-repo/docs -p 3001${RESET}"
+echo -e "  4. Discuss → tag @sot-scribe to generate artifacts → annotate → @sot-editor to edit"
 echo ""
