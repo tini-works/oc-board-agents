@@ -1,0 +1,125 @@
+# Change Reference
+
+Flow: `ADR → Understand → Approve → Execute → Audit`
+
+Spawn parallel subagents via Task tool for complex work.
+
+## Progress Checklist
+
+```
+- [ ] Phase 1: ADR created (`c3x add adr <slug>`)
+- [ ] Phase 2: topology loaded, impact analyzed, ADR body filled
+- [ ] Phase 2b: provision gate (implement or design-only?)
+- [ ] Phase 3: execute work breakdown
+- [ ] Phase 4: audit + ADR marked implemented
+```
+
+---
+
+## Phase 1: ADR (FIRST — non-negotiable)
+
+```bash
+bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add adr <slug>
+```
+
+Create the ADR immediately. The slug should capture the change intent (e.g., `add-rate-limiting`, `migrate-to-postgres`).
+
+Edit the ADR frontmatter:
+```yaml
+---
+id: adr-YYYYMMDD-{slug}
+title: [Decision Title]
+status: proposed
+date: YYYY-MM-DD
+affects: []
+---
+```
+
+The body will be filled in Phase 2 after understanding impact.
+
+## Phase 2: Understand + Fill ADR
+
+```bash
+bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh list --json
+```
+
+Clarify with user (ASSUMPTION_MODE: skip). Analyze:
+- Affected containers, components, refs
+- For every file mentioned or discovered: `c3x lookup <file>` — load constraint chain before reasoning
+- If lookup returns no mapping → file is uncharted territory, flag as coverage gap
+- Read upward: component → container → context → cited refs
+- Risks
+
+Fill the ADR body: Goal, Work Breakdown, Risks. Update `affects:` in frontmatter.
+
+Present for approval (ASSUMPTION_MODE: mark `[ASSUMED]`).
+
+Complex changes: spawn parallel analyst + reviewer subagents, synthesize.
+
+## Phase 2b: Provision Gate
+
+Ask (ASSUMPTION_MODE: skip):
+- **Implement now** → Phase 3
+- **Design only** → create docs `status: provisioned`, no code-map entry, mark ADR `provisioned`, done
+
+To implement provisioned later: invoke change, pick up ADR + docs, resume Phase 3.
+
+## Phase 3: Execute
+
+Scaffold:
+```bash
+bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add container <slug>
+bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add component <slug> --container c3-N [--feature]
+bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add ref <slug>
+```
+
+**REQUIRED before touching any file:**
+```bash
+bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh lookup <file-path>
+```
+Returned refs = hard constraints. Every one must be honored. No exceptions.
+
+Parallel subagents: decompose tasks, each reads component docs + refs before touching code.
+
+Per task: verify code correct, docs updated (code-map.yaml, Related Refs), no regressions.
+
+## Phase 4: Audit
+
+```bash
+bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh check
+```
+
+- Docs match code
+- Related Refs updated
+- CLAUDE.md blocks updated: `<!-- c3-generated: c3-NNN -->` ... `<!-- end-c3-generated -->`
+- ADR → `implemented`
+
+---
+
+## Regression
+
+| Discovery | Action |
+|-----------|--------|
+| Changes problem | Back to Phase 1 |
+| Changes approach | Back to Phase 2 |
+| Expands scope | Amend ADR |
+| Implementation detail | Adjust tasks |
+
+---
+
+## ADR Lifecycle
+
+ADRs are **ephemeral work orders**. They drive changes then become hidden.
+
+Status: `proposed → accepted → (provisioned | implemented)`
+
+`c3x list` and `c3x check` exclude ADRs by default. Use `--include-adr` to inspect.
+
+---
+
+## Routing
+
+- Pre-change impact → sweep
+- Architecture questions → query
+- Pattern management → ref
+- Standalone audit → audit

@@ -1,0 +1,14 @@
+# Secrets — never commit
+.env
+**/*.key
+**/*.pem
+**/secrets*
+
+# Built artifacts — clone fresh per machine
+prev-cli/
+node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+TOOLS.md.bak
