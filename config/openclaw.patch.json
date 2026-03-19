@@ -21,6 +21,14 @@
     },
     "list": [
       {
+        "id": "main",
+        "default": true,
+        "workspace": "{{OPENCLAW_HOME}}/workspace",
+        "tools": {
+          "allow": ["read", "write", "exec", "web_search", "web_fetch", "memory_search"]
+        }
+      },
+      {
         "id": "board",
         "workspace": "{{OPENCLAW_HOME}}/workspace/agents/board",
         "tools": {
