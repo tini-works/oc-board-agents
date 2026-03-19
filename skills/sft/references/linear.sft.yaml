@@ -1,0 +1,196 @@
+app:
+  name: linear
+  description: Issue tracking and project management — list, board, and cycle views with global shortcuts
+
+  data:
+    issue:
+      identifier: string
+      title: string
+      description: string
+      status: string
+      priority: string
+      assignee: user
+      labels: label[]
+      project: project
+      cycle: cycle
+      parent: issue
+      sub_issues: issue[]
+      created_at: datetime
+      updated_at: datetime
+    user:
+      name: string
+      email: string
+      avatar_url: string
+    project:
+      name: string
+      description: string
+      lead: user
+      status: string
+    cycle:
+      name: string
+      start_date: date
+      end_date: date
+      progress: number
+    label:
+      name: string
+      color: string
+    comment:
+      author: user
+      body: string
+      created_at: datetime
+
+  context:
+    current_user: user
+    workspace_name: string
+
+  regions:
+    - name: main_sidebar
+      description: Workspace navigation — teams, projects, views, cycles
+    - name: command_palette
+      description: Cmd+K search and action palette — available from any screen
+      tags: [overlay]
+    - name: notification_center
+      description: Activity feed for mentions, assignments, and status changes
+      tags: [overlay]
+    - name: create_issue_modal
+      description: Quick issue creation triggered by C key from any screen
+      tags: [overlay]
+      events: [submit_issue]
+      data:
+        title: string
+        description: string
+        status: string
+        priority: string
+        assignee_id: string
+        label_ids: string[]
+
+  screens:
+    - name: my_issues
+      description: Personal issue queue with filtering and bulk selection
+      context:
+        issues: issue[]
+        selected: issue[]
+        active_filters: string[]
+      regions:
+        - name: issue_list
+          description: Filterable list of issues assigned to or created by the user
+          events: [select_issue, shift_select_issue]
+          ambient:
+            issues: "data(my_issues, .issues)"
+        - name: filter_bar
+          description: Status, priority, label, and assignee filters
+          ambient:
+            active_filters: "data(my_issues, .active_filters)"
+        - name: bulk_action_bar
+          description: Archive, label, assign, change status — appears in selecting state
+          events: [bulk_action]
+          ambient:
+            selected: "data(my_issues, .selected)"
+      state_machine:
+        browsing:
+          on:
+            select_issue: navigate(issue_detail)
+            shift_select_issue: selecting
+        selecting:
+          on:
+            shift_select_issue: .
+            bulk_action: browsing
+            escape: browsing
+
+    - name: issue_detail
+      description: Full issue view with description, activity, properties, and sub-issues
+      tags: [per_issue]
+      context:
+        issue: issue
+        comments: comment[]
+      regions:
+        - name: issue_header
+          description: Title, status badge, priority indicator, and quick actions
+          ambient:
+            issue: "data(issue_detail, .issue)"
+        - name: description_editor
+          description: Rich text editor for issue description — supports markdown, mentions, slash commands
+          events: [edit_description, save_description]
+          ambient:
+            issue: "data(issue_detail, .issue)"
+          data:
+            draft_description: string
+          state_machine:
+            viewing:
+              on:
+                edit_description: editing
+            editing:
+              on:
+                save_description: viewing
+        - name: activity_feed
+          description: Chronological log of comments, status changes, and linked activity
+          ambient:
+            comments: "data(issue_detail, .comments)"
+        - name: properties_panel
+          description: Assignee, status, priority, labels, cycle, project — editable inline
+          ambient:
+            issue: "data(issue_detail, .issue)"
+        - name: sub_issue_list
+          description: Child issues linked to this parent issue
+          ambient:
+            issue: "data(issue_detail, .issue)"
+
+    - name: board_view
+      description: Kanban-style board with drag-and-drop columns by status
+      tags: [per_project]
+      context:
+        project: project
+        issues_by_status: issue[]
+      regions:
+        - name: column_list
+          description: Status columns (Backlog, Todo, In Progress, Done, Cancelled)
+          ambient:
+            issues_by_status: "data(board_view, .issues_by_status)"
+        - name: issue_cards
+          description: Issue summary cards draggable between columns
+          events: [select_issue, drag_issue]
+          ambient:
+            issues_by_status: "data(board_view, .issues_by_status)"
+
+    - name: cycle_view
+      description: Time-boxed iteration view with progress tracking
+      tags: [per_cycle]
+      context:
+        cycle: cycle
+        issues: issue[]
+      regions:
+        - name: cycle_progress
+          description: Burndown chart and completion percentage
+          ambient:
+            cycle: "data(cycle_view, .cycle)"
+        - name: cycle_issue_list
+          description: Issues assigned to this cycle
+          events: [select_issue]
+          ambient:
+            issues: "data(cycle_view, .issues)"
+
+    - name: settings
+      description: Workspace and personal configuration
+      regions:
+        - name: workspace_settings
+          description: General workspace config, integrations, API keys
+          tags: [admin]
+        - name: personal_settings
+          description: Notification preferences, theme, default views
+        - name: team_settings
+          description: Team-specific workflow, labels, and automation rules
+          tags: [team_admin]
+
+  flows:
+    - name: issue_from_list
+      description: Open an issue from the list and return with scroll position preserved
+      sequence: "my_issues → issue_detail → [Back] → my_issues(H)"
+
+    - name: issue_from_board
+      description: Open an issue from the board and return to the same board state
+      sequence: "board_view → issue_detail → [Back] → board_view(H)"
+
+    - name: create_issue
+      description: Quick-create an issue from anywhere via keyboard shortcut
+      on: create_issue
+      sequence: "create_issue_modal activates → fill fields → submit_issue"

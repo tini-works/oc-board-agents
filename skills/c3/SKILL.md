@@ -1,30 +1,61 @@
 ---
 name: c3
 description: |
-  Use when the user invokes /c3 or asks architecture questions about a codebase.
-  Handles 6 operations: onboard (scaffold .c3/ docs), query (where is X, explain Y),
-  audit (validate docs, check drift), change (add feature, implement X, refactor),
-  ref (document a pattern or convention), sweep (what breaks if I change X).
-  Trigger phrases: "/c3", "adopt C3", "onboard this project", "where is auth",
-  "audit the architecture", "check the docs", "add a component", "add rate limiting",
-  "implement feature X", "what breaks if I change X", "add a ref for X",
-  "document this pattern", "impact assessment", "create architecture docs",
-  ".c3 directory", "c3x", "C3 docs".
+  This skill should be used when the user invokes /c3 or asks architecture questions
+  about a project with a .c3/ directory. Trigger phrases: "adopt C3", "onboard this
+  project", "where is X", "audit the architecture", "check docs", "add a component",
+  "implement feature", "what breaks if I change X", "add a ref". Handles operations:
+  onboard, query, audit, change, ref, sweep. Classifies intent, loads ref, executes.
+
+  <example>
+  user: "adopt C3 for this project"
+  assistant: "Using c3 to onboard this project."
+  </example>
+
+  <example>
+  user: "where is auth in the C3 docs?"
+  assistant: "Using c3 to query the architecture."
+  </example>
+
+  <example>
+  user: "add a new API component"
+  assistant: "Using c3 to orchestrate the change."
+  </example>
+
+  <example>
+  user: "what breaks if I change the auth API?"
+  assistant: "Using c3 to assess impact."
+  </example>
+
+  <example>
+  user: "audit C3 docs for drift"
+  assistant: "Using c3 to audit."
+  </example>
+
+  <example>
+  user: "add a ref for error handling"
+  assistant: "Using c3 to create a ref."
+  </example>
 ---
 
 # C3
 
-CLI: `bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh <command> [args]`
+CLI: `C3X_MODE=agent bash <skill-dir>/bin/c3x.sh <command> [args]`
 
 | Command | Purpose |
 |---------|---------|
 | `init` | Scaffold `.c3/` |
-| `list` | Topology (`--json`, `--flat`, `--compact`) |
-| `check` | Structural validation (`--json`) |
-| `add <type> <slug>` | Create entity (`--container`, `--feature`) |
+| `list` | Topology with files (`--json`, `--flat`, `--compact`) |
+| `check` | Structural validation (`--json`, `--fix`) |
+| `add <type> <slug>` | Create entity (`--container`, `--feature`, `--json`) |
+| `set <id> <field> <val>` | Update frontmatter field |
+| `set <id> --section <name>` | Update section content (text or JSON table) |
+| `wire <src> <tgt>` | Link component to ref (`--remove` to unlink) |
+| `schema <type>` | Section definitions for entity type (`--json`) |
 | `codemap` | Scaffold `.c3/code-map.yaml` with stubs for all components + refs |
 | `lookup <file-or-glob>` | File or glob → component + refs (`--json`) |
 | `coverage` | Code-map coverage stats (JSON default) |
+| `delete <id>` | Remove entity + clean all references (`--dry-run`) |
 
 Types for `add`: `container`, `component`, `ref`, `adr`, `recipe`
 
@@ -56,9 +87,19 @@ Types for `add`: `container`, `component`, `ref`, `adr`, `recipe`
 
 Before every op except onboard:
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh list --json
+bash <skill-dir>/bin/c3x.sh list --json
 ```
 Fails/empty → route to **onboard**
+
+---
+
+## CoT Harness
+
+C3 context is already loaded. Every file, every directory has a place in the topology. Before touching anything, let C3 tell you what it knows — then follow its lead.
+
+`c3x lookup <file-or-glob>` → component docs, refs, constraints. Read them. They supersede assumptions.
+
+When context shifts to a new component mid-task, look it up again. The topology is the source of truth — just follow it.
 
 ---
 
@@ -72,6 +113,17 @@ First `AskUserQuestion` denial → `ASSUMPTION_MODE = true` for session.
 ---
 
 ## Shared Rules
+
+**HARD RULE — .c3/ is CLI-only:**
+NEVER use Edit, Write, or any file tool on files inside `.c3/`. ALL mutations go through c3x:
+- Create: `c3x add`, `c3x init`, `c3x codemap`
+- Read:   `c3x list`, `c3x schema`, `c3x lookup`, `c3x coverage`
+- Update: `c3x set`, `c3x wire` (`--remove` to unwire)
+- Delete: `c3x delete`
+- Validate: `c3x check`
+
+Exception: `code-map.yaml` patterns may be edited directly (flat YAML, no integrity constraints).
+If c3x lacks a needed mutation, STOP and tell the user — do not work around it.
 
 **Run `c3x check` frequently** — after creating/editing any `.c3/` doc. It catches broken YAML frontmatter, missing required sections, bad entity references, and codemap issues. Treat errors (`✗`) as blockers.
 
@@ -90,8 +142,8 @@ The ADR is an ephemeral work order — it drives what to update, then gets hidde
 
 **File Context — MANDATORY before reading or altering any file:**
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh lookup <file-path>
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh lookup 'src/auth/**'   # glob for directory-level context
+bash <skill-dir>/bin/c3x.sh lookup <file-path>
+bash <skill-dir>/bin/c3x.sh lookup 'src/auth/**'   # glob for directory-level context
 ```
 Returned refs = hard constraints, every one MUST be honored.
 Run the moment any file path surfaces. Use glob when working across a directory.
@@ -120,7 +172,7 @@ No `.c3/` or re-onboard. `c3x init` → discovery → inject CLAUDE.md → show 
 Details: `references/onboard.md`
 
 ### query
-`c3x list` → match entity → Read doc → explore code.
+`c3x list --json` → match entity (includes refs, affects, files) → Read doc → explore code.
 Details: `references/query.md`
 
 ### audit
@@ -128,7 +180,7 @@ Details: `references/query.md`
 Details: `references/audit.md`
 
 ### change
-ADR first (`c3x add adr`) → `c3x list --json` → `c3x lookup` each file → fill ADR (impact, work breakdown) → approve → execute → `c3x check`.
+ADR first (`c3x add adr --json`) → `c3x list --json` → identify affected entities (refs, affects in frontmatter) → `c3x lookup` each file → fill ADR → approve → execute → `c3x check`.
 Provision gate: implement now or `status: provisioned`.
 Details: `references/change.md`
 
@@ -137,36 +189,6 @@ Modes: Add / Update / List / Usage.
 Details: `references/ref.md`
 
 ### sweep
-`c3x list --json` → affected entities → parallel assessment → synthesize. Advisory only.
+`c3x list --json` → filter by refs/affects to find affected entities → parallel assessment → synthesize. Advisory only.
 Details: `references/sweep.md`
 
----
-
-## CLAUDE.md Injection (onboard)
-
-```markdown
-# Architecture
-This project uses C3 docs in `.c3/`.
-For architecture questions, changes, audits, file context -> `/c3`.
-Operations: query, audit, change, ref, sweep.
-File lookup: `c3x lookup <file-or-glob>` maps files/directories to components + refs.
-```
-
-## Capabilities Reveal (onboard)
-
-```
-## Your C3 toolkit is ready
-
-| Command | What it does |
-|---------|-------------|
-| `/c3` query | Ask about architecture |
-| `/c3` audit | Validate docs |
-| `/c3` change | Modify architecture |
-| `/c3` ref | Manage patterns |
-| `/c3` sweep | Impact assessment |
-| `/c3` recipe | Trace cross-cutting concern end-to-end |
-| `c3x lookup <file-or-glob>` | File or directory → components + governing refs |
-| `c3x coverage` | See what's mapped, excluded, unmapped |
-
-Just say `/c3` + what you want.
-```

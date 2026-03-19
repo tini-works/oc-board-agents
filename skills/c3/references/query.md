@@ -21,7 +21,7 @@ Navigate C3 docs + corresponding code. Full context = docs + code.
 
 **First action:**
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh list --json
+bash <skill-dir>/bin/c3x.sh list --json
 ```
 Returns all entities: id, type, title, path, relationships, frontmatter. Match query to entities by title/type/relationship.
 

@@ -11,6 +11,7 @@ Spawn parallel subagents via Task tool for complex work.
 - [ ] Phase 2: topology loaded, impact analyzed, ADR body filled
 - [ ] Phase 2b: provision gate (implement or design-only?)
 - [ ] Phase 3: execute work breakdown
+- [ ] Phase 3b: ref compliance gate
 - [ ] Phase 4: audit + ADR marked implemented
 ```
 
@@ -19,7 +20,7 @@ Spawn parallel subagents via Task tool for complex work.
 ## Phase 1: ADR (FIRST — non-negotiable)
 
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add adr <slug>
+bash <skill-dir>/bin/c3x.sh add adr <slug>
 ```
 
 Create the ADR immediately. The slug should capture the change intent (e.g., `add-rate-limiting`, `migrate-to-postgres`).
@@ -40,7 +41,7 @@ The body will be filled in Phase 2 after understanding impact.
 ## Phase 2: Understand + Fill ADR
 
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh list --json
+bash <skill-dir>/bin/c3x.sh list --json
 ```
 
 Clarify with user (ASSUMPTION_MODE: skip). Analyze:
@@ -66,16 +67,17 @@ To implement provisioned later: invoke change, pick up ADR + docs, resume Phase 
 
 ## Phase 3: Execute
 
-Scaffold:
+Scaffold / tear down:
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add container <slug>
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add component <slug> --container c3-N [--feature]
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh add ref <slug>
+bash <skill-dir>/bin/c3x.sh add container <slug>
+bash <skill-dir>/bin/c3x.sh add component <slug> --container c3-N [--feature]
+bash <skill-dir>/bin/c3x.sh add ref <slug>
+bash <skill-dir>/bin/c3x.sh delete <id> [--dry-run]
 ```
 
 **REQUIRED before touching any file:**
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh lookup <file-path>
+bash <skill-dir>/bin/c3x.sh lookup <file-path>
 ```
 Returned refs = hard constraints. Every one must be honored. No exceptions.
 
@@ -83,10 +85,45 @@ Parallel subagents: decompose tasks, each reads component docs + refs before tou
 
 Per task: verify code correct, docs updated (code-map.yaml, Related Refs), no regressions.
 
+## Phase 3b: Ref Compliance Gate
+
+**Before moving to audit, verify changes comply with applicable refs.**
+
+For each file touched in Phase 3:
+```bash
+bash <skill-dir>/bin/c3x.sh lookup <file-path>
+```
+
+For each returned ref, check compliance using comparison mode:
+
+| Ref Section | Comparison Mode | What To Check |
+|-------------|-----------------|---------------|
+| `## How` (code examples) | Structural | Does code match the golden pattern structure? |
+| `## How` (prose) | Semantic | Does implementation follow the described approach? |
+| `## Choice` only | Negative | Does code contradict the stated choice? |
+| `## Not This` | Anti-pattern | Does code resemble any rejected alternative? |
+
+**ADVERSARIAL FRAMING: Look for violations — do not confirm compliance.**
+
+Mandatory output:
+
+```
+| Ref | Section Checked | Verdict | Evidence |
+|-----|-----------------|---------|----------|
+| ref-X | How | COMPLIANT | Matches pattern structure |
+| ref-Y | Not This | VIOLATION | Uses rejected approach Z |
+```
+
+Rules:
+- **Scope to YOUR CHANGES** — don't audit the entire codebase
+- **Ref wins** — if your code disagrees with a ref, the ref is right. Create an ADR if override needed.
+- **Override via `## Override`** — follow the ref's documented override process
+- **Conflicts** — when multiple refs apply, scope specificity wins (component ref > container ref > context ref)
+
 ## Phase 4: Audit
 
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh check
+bash <skill-dir>/bin/c3x.sh check
 ```
 
 - Docs match code

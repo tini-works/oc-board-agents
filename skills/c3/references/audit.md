@@ -14,6 +14,7 @@ Three tiers: **structural** (CLI) → **inventory** (CLI) → **semantic** (reas
 - [ ] Phase 5: Diagram Accuracy
 - [ ] Phase 6: ADR Lifecycle
 - [ ] Phase 7: Ref Validation
+- [ ] Phase 7b: Ref Compliance
 - [ ] Phase 8: Abstraction Boundaries
 - [ ] Phase 9: Content Separation
 - [ ] Phase 10: CLAUDE.md
@@ -23,15 +24,15 @@ Three tiers: **structural** (CLI) → **inventory** (CLI) → **semantic** (reas
 ## Phase 0: Structural
 
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh check
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh check --json
+bash <skill-dir>/bin/c3x.sh check
+bash <skill-dir>/bin/c3x.sh check --json
 ```
 Detects: broken links, orphans, duplicate IDs, missing parents. Issues here overlap Phases 2, 4, 7 — skip re-checking those.
 
 ## Phase 1: Inventory
 
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh list --json
+bash <skill-dir>/bin/c3x.sh list --json
 ```
 Source of truth for all subsequent phases. No manual Glob+Read of `.c3/`.
 
@@ -56,7 +57,7 @@ For each Component: `c3x lookup <file>` per mapped path — verifies resolution,
 
 Coverage check:
 ```bash
-bash /home/node/.openclaw/workspace/skills/c3/bin/c3x.sh coverage
+bash <skill-dir>/bin/c3x.sh coverage
 ```
 Low coverage → WARN. Formula: `mapped / (total - excluded)` — `_exclude` patterns don't penalize the score. Suggest `_exclude` for test/config files, map remaining to components.
 
@@ -76,6 +77,23 @@ Only audit ADR lifecycle when explicitly requested or when running `c3x check --
 - Each ref: requires Choice + Why sections
 - Each ref: cited by at least one component (orphan → WARN)
 - Each citing component: ref file exists in `.c3/refs/`
+
+## Phase 7b: Ref Compliance
+
+For each ref with `## How` containing golden patterns:
+1. Find citing components via `c3x list --json`
+2. For each citing component, spot-check 1-2 mapped files from code-map
+3. Compare code against `## How` pattern
+
+| Result | Meaning |
+|--------|---------|
+| COMPLIANT | Code matches golden pattern structure |
+| DRIFT | Code diverges from pattern (may be intentional) |
+| NOT CHECKED | No code-map mapping or no `## How` section |
+
+**Quality check:** For each ref `## How`, can you derive 1-3 YES/NO compliance questions?
+- Yes → pattern is actionable
+- No → WARN: `## How` needs rework (too vague for enforcement)
 
 ## Phase 8: Abstraction Boundaries
 
