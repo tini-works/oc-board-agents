@@ -17,10 +17,8 @@ Things like:
 
 ## GitHub
 
-- **Token:** `{{GITHUB_PAT}}`
+- **Token:** `$GITHUB_TOKEN` (set in ~/.openclaw/.env — never commit this value)
 - **User/Org:** `{{GITHUB_USER}}`
-- **Repos:**
-  - `{{GITHUB_USER}}/prev-cli` — forked prev-cli with board feature
 
 ---
 

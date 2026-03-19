@@ -1,85 +1,181 @@
 # sot-starter
 
-> One-command setup for an OpenClaw workspace with the full SOT (Source of Truth) development workflow.
+One-command installer that configures [OpenClaw](https://github.com/openclaw/openclaw) for the **Source of Truth (SOT)** agentic development workflow.
 
-## What's included
+## What it sets up
 
-### Skills
-
-| Skill | Description |
-|-------|-------------|
-| **c3** | Architecture documentation tool (c3 graph, code-map) |
-| **prev-cli** | Docs site + infinite board canvas + A2UIPreview |
-| **sot-manager** | SOT lifecycle: draft → approve → merge → handoff |
-| **project-adopt** | Reverse-engineer a codebase into a SOT (6-pass, includes A2UI JSONL) |
-| **get-api-docs** | Fetch third-party API docs via chub before writing code |
-| **qmd** | BM25 + semantic search across workspace markdown |
-| **skill-creator-ultra** | Design and package new AI skills |
-
-### Board Agents
-
-| Agent | Trigger | Role |
-|-------|---------|------|
-| **board** | Automatic — every board session | Discussion host, SOT-aware facilitator. Read-only. |
-| **sot-scribe** | `@sot-scribe` in board chat | Collects insights, generates c3/A2UI/API/data-model artifacts |
-| **sot-editor** | Annotation thread → Request Update | Makes targeted edits to specific artifacts |
+- **3 board agents** — board (facilitator), sot-scribe (artifact generator), sot-editor (artifact editor)
+- **7 skills** — c3, sot-manager, project-adopt, prev-cli, get-api-docs, qmd, skill-creator-ultra
+- **Workspace files** — SOUL.md, AGENTS.md, TOOLS.md, USER.md, MEMORY.md
+- **prev-cli** — Board UI for collaborative architecture discussions
+- **c3x binary** — Architecture validation tool
+- **Model provider** — uses the model already configured by OpenClaw setup
 
 ## Prerequisites
 
-- [OpenClaw](https://openclaw.ai) installed and **configured** (`openclaw configure` done — this sets your API key)
-- `git`
-- `python3`
-- `bun` or `node`
+### Docker mode (recommended)
+
+1. [Docker](https://docs.docker.com/get-docker/) installed and running
+2. OpenClaw Docker image built and gateway started:
+   ```bash
+   cd /path/to/openclaw
+   ./docker-setup.sh
+   ```
+3. `python3` and `git` on the host
+
+### Native mode
+
+1. OpenClaw installed and configured (`openclaw configure`)
+2. `python3`, `git`, and `bun` or `node` on the host
 
 ## Install
 
+### Docker mode
+
 ```bash
-git clone https://github.com/thanh-dong/sot-starter
-cd sot-starter
-chmod +x install.sh
+git clone https://github.com/tini-works/oc-sot-starter.git
+cd oc-sot-starter
+./install.sh --docker --openclaw-repo /path/to/openclaw
+```
+
+### Native mode
+
+```bash
+git clone https://github.com/tini-works/oc-sot-starter.git
+cd oc-sot-starter
 ./install.sh
 ```
 
-The installer prompts for:
-- **GitHub PAT** — for cloning private repos (leave blank to skip)
-- **GitHub username** — for cloning your prev-cli fork (leave blank to skip)
-
-> No API key needed — `openclaw configure` already handles that.
-
-> Credentials are applied to your local files only and **never stored in this repo**.
-
 ## What the installer does
 
-1. Copies workspace files to `~/.openclaw/workspace/` (skips existing)
-2. Installs all 7 skills (skips existing)
-3. Installs board agent workspaces (`workspace-sot-scribe/`, `workspace-sot-editor/`)
-4. Deep-merges `config/openclaw.patch.json` into `~/.openclaw/openclaw.json`
-   - Appends sot-scribe and sot-editor to `agents.list` (never wipes existing agents)
-   - Upgrades board agent to sonnet + SOT-aware system prompt
-5. *(Optional)* Downloads c3x binary
-6. *(Optional)* Clones and builds your `prev-cli` fork
-7. *(Optional)* Installs `chub` CLI
-8. *(Optional)* Seeds memory search index (`openclaw memory index --force`)
-9. *(Optional)* Restarts the OpenClaw gateway
+```
+Step 1: Enter credentials
+         GitHub PAT + username (for sot-manager PR workflow, optional)
+
+Step 2: Install workspace files
+         SOUL.md, AGENTS.md, TOOLS.md, etc. → ~/.openclaw/workspace/
+
+Step 3: Install 7 skills
+         → ~/.openclaw/workspace/skills/
+
+Step 4: Install agent workspaces
+         workspace-sot-scribe/, workspace-sot-editor/
+
+Step 5: Patch openclaw.json
+         Register agents, configure memory search
+         (Docker) Fix gateway bind + controlUi allowedOrigins
+
+Step 6: Download c3x binary
+         Linux binary in Docker mode, native binary otherwise
+
+Step 7: Clone + build prev-cli
+         Default: https://github.com/tini-works/oc-board-cli.git
+         Custom repo URL supported
+
+Step 8: Optional
+         Install chub CLI, seed memory index, restart gateway
+```
 
 ## After install
 
-1. Edit `~/.openclaw/workspace/USER.md` — tell the agent who you are
-2. Edit `~/.openclaw/workspace/SOUL.md` — customise the persona
-3. Start a board:
+1. **Edit your profile:**
+   ```bash
+   nano ~/.openclaw/workspace/USER.md
+   ```
+
+2. **Start the board:**
+
+   Docker:
+   ```bash
+   cd /path/to/openclaw
+   docker compose exec openclaw-gateway \
+     node /home/node/.openclaw/workspace/prev-cli/dist/cli.js \
+     -c /path/to/sot-repo/docs -p 3001
+   ```
+
+   Native:
    ```bash
    cd ~/.openclaw/workspace/prev-cli
    bun dist/cli.js -c /path/to/sot-repo/docs -p 3001
    ```
-4. Open `http://localhost:3001` → **Board** → start discussing
-5. Tag **@sot-scribe** when ready to generate SOT artifacts
-6. Annotate artifacts → **Request Update** → **@sot-editor** makes the edit
+
+3. **Open** `http://localhost:3001` → Board tab
+
+4. **Discuss → Generate → Review:**
+   - Chat with the board agent (discussion facilitator)
+   - Tag `@sot-scribe` to generate architecture artifacts
+   - Annotate artifacts → sot-editor makes targeted edits
+   - Use sot-manager to open a Change Request
+
+## Agents
+
+| Agent | Trigger | Role | Tools |
+|-------|---------|------|-------|
+| **board** | Always present | Discussion facilitator (read-only) | read, web_search, web_fetch, memory_search |
+| **sot-scribe** | `@sot-scribe` in board chat | Generates SOT artifacts from discussions | read, write, exec, web_search, web_fetch, memory_search |
+| **sot-editor** | Annotation → Request Update | Makes targeted edits to artifacts | read, write, exec, memory_search |
+
+## Skills
+
+| Skill | Purpose |
+|-------|---------|
+| **c3** | Architecture documentation (c3x CLI) |
+| **sot-manager** | SOT lifecycle: draft → approve → merge → handoff |
+| **project-adopt** | Reverse-engineer codebases into SOT |
+| **prev-cli** | Documentation site + board canvas |
+| **get-api-docs** | Fetch third-party API docs via chub |
+| **qmd** | Semantic memory search (BM25 + vector) |
+| **skill-creator-ultra** | AI skill design pipeline |
+
+## Flags
+
+| Flag | Description |
+|------|-------------|
+| `--docker` | Configure for Docker-based OpenClaw |
+| `--openclaw-repo <path>` | Path to OpenClaw repo with docker-compose.yml |
 
 ## Re-running
 
-The installer is idempotent: existing workspace files and skills are skipped. Safe to run again after a sot-starter update.
+The installer is idempotent — safe to re-run. Existing workspace files and skills are skipped. TOOLS.md is overwritten (backup created).
 
-## Structure
+## Workspace structure
+
+After install, the workspace at `~/.openclaw/workspace/` looks like this and can be pushed to a git repo:
+
+```
+~/.openclaw/workspace/              ← single git repo for all agents
+├── SOUL.md                         ← main agent personality
+├── AGENTS.md                       ← operating rules
+├── USER.md                         ← your profile
+├── TOOLS.md                        ← local config (no secrets)
+├── IDENTITY.md
+├── MEMORY.md                       ← curated long-term memory
+├── HEARTBEAT.md
+├── .gitignore                      ← ignores prev-cli/, secrets
+├── memory/                         ← daily notes
+├── skills/                         ← shared skills (all agents)
+│   ├── c3/
+│   ├── sot-manager/
+│   ├── prev-cli/
+│   ├── project-adopt/
+│   ├── get-api-docs/
+│   ├── qmd/
+│   └── skill-creator-ultra/
+├── agents/                         ← per-agent workspaces
+│   ├── sot-scribe/
+│   │   ├── SOUL.md
+│   │   ├── AGENTS.md
+│   │   └── IDENTITY.md
+│   └── sot-editor/
+│       ├── SOUL.md
+│       ├── AGENTS.md
+│       └── IDENTITY.md
+└── prev-cli/                       ← board UI (gitignored, built per machine)
+```
+
+Credentials (GitHub PAT) are stored in `~/.openclaw/.env`, outside the workspace.
+
+## Repo structure (this repo)
 
 ```
 sot-starter/
@@ -88,17 +184,12 @@ sot-starter/
 │   └── openclaw.patch.json         ← merged into ~/.openclaw/openclaw.json
 ├── workspace/
 │   ├── SOUL.md / AGENTS.md / ...   ← main agent persona files
-│   ├── TOOLS.md                    ← credentials + SOT config template
-│   └── skills/
-│       ├── c3/
-│       ├── prev-cli/
-│       ├── sot-manager/
-│       ├── project-adopt/
-│       ├── get-api-docs/
-│       ├── qmd/
-│       └── skill-creator-ultra/
-├── workspace-sot-scribe/           ← Scribe agent persona (SOUL, AGENTS, IDENTITY)
-├── workspace-sot-editor/           ← Editor agent persona (SOUL, AGENTS, IDENTITY)
+│   ├── TOOLS.md                    ← config template (no secrets)
+│   ├── .gitignore                  ← workspace gitignore template
+│   ├── skills/                     ← 7 skills
+│   └── agents/                     ← agent workspace templates
+│       ├── sot-scribe/
+│       └── sot-editor/
 └── README.md
 ```
 

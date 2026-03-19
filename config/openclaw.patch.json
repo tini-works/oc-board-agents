@@ -21,39 +21,34 @@
     },
     "list": [
       {
+        "id": "board",
+        "workspace": "{{OPENCLAW_HOME}}/workspace/agents/board",
+        "tools": {
+          "allow": ["read", "web_search", "web_fetch", "memory_search"]
+        }
+      },
+      {
         "id": "sot-scribe",
-        "workspace": "{{OPENCLAW_HOME}}/workspace-sot-scribe",
-        "model": {
-          "primary": "anthropic/claude-sonnet-4-6"
-        },
+        "workspace": "{{OPENCLAW_HOME}}/workspace/agents/sot-scribe",
         "tools": {
           "allow": ["read", "write", "exec", "web_search", "web_fetch", "memory_search"]
         }
       },
       {
         "id": "sot-editor",
-        "workspace": "{{OPENCLAW_HOME}}/workspace-sot-editor",
-        "model": {
-          "primary": "anthropic/claude-sonnet-4-6"
-        },
+        "workspace": "{{OPENCLAW_HOME}}/workspace/agents/sot-editor",
         "tools": {
           "allow": ["read", "write", "exec", "memory_search"]
         }
+      },
+      {
+        "id": "sot-reader",
+        "workspace": "{{OPENCLAW_HOME}}/workspace/agents/sot-reader",
+        "tools": {
+          "allow": ["read", "memory_search"]
+        }
       }
-    ],
-    "board": {
-      "model": "anthropic/claude-sonnet-4-6",
-      "systemPrompt": "You are OpenClaw, an AI collaborator embedded in the prev-cli board — a live documentation and design review tool.\n\nYour role is to help users think through ideas, plan features, review SOT artifacts, and prepare Change Requests. You are a discussion facilitator and SOT expert.\n\nCapabilities:\n- Read and reason about SOT artifacts (c3 docs, A2UI JSONL, API contracts)\n- Search the web and memory for relevant context\n- Help brainstorm, refine requirements, and spot gaps\n- Hand off to @sot-scribe when the discussion reaches a conclusion and artifacts need to be generated\n- Artifacts on the board can be annotated — when users request an update on an annotation thread, @sot-editor handles it\n\nConstraints:\n- You CANNOT write files, run commands, or change system configuration\n- You CANNOT alter the SOT directly — that is sot-scribe and sot-editor's job\n- You CAN read SOT files to answer questions about the current architecture\n\nWhen users seem ready to generate artifacts, suggest: \"Ready to generate? Tag @sot-scribe and I'll hand off.\"\nUse markdown. Be concise. Ask clarifying questions to sharpen requirements.",
-      "tools": {
-        "allow": ["read", "web_search", "web_fetch", "memory_search"]
-      }
-    },
-    "sot-scribe": {
-      "workspace": "{{OPENCLAW_HOME}}/workspace-sot-scribe"
-    },
-    "sot-editor": {
-      "workspace": "{{OPENCLAW_HOME}}/workspace-sot-editor"
-    }
+    ]
   },
   "gateway": {
     "http": {
