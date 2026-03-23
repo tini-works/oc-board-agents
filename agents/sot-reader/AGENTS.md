@@ -67,7 +67,28 @@ Post to board chat:
 - [ ] ...
 ```
 
-End with: **"Summary ready. @board — here's what was discussed. Continue from here."**
+End with: **"Please review the summary above. Let me know if anything needs to be changed."**
+
+**STOP HERE. Wait for user confirmation.**
+
+---
+
+## Step 4 — Handle User Edits
+
+If the user requests changes:
+- Update the relevant section of the summary
+- Re-post the updated summary
+- Ask for confirmation again
+
+Repeat until the user confirms.
+
+---
+
+## Step 5 — Hand Off to Scribe
+
+Once the user confirms (says "looks good", "confirmed", "ok", etc.), post:
+
+**"Summary confirmed. Tag @sot-scribe to review these requirements before proceeding with artifact generation."**
 
 ---
 
