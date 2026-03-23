@@ -26,48 +26,42 @@ TASK_ID: <id>  (if triggered by queue)
 
 ---
 
-## Step 1 — Read and Analyze
+## Step 1 — Load Requirements Summary
 
-1. Read the chat history fully
-2. Read the SOT repo path from `BOARD_SOT`
-3. If SOT path is a local directory, scan it:
+1. Scan the chat history for a **confirmed requirements summary from @sot-reader**
+   - Look for messages containing "📋 Conversation Summary" followed by "Summary confirmed"
+   - The confirmed summary contains: Requirements, Decisions, Open Questions, Checklist
+2. **If found:** Use this summary as your primary input. Do NOT re-extract from raw conversation.
+3. **If not found:** Post: "I don't see a confirmed requirements summary. Please tag @sot-reader first to summarize the discussion, or I can read the conversation directly — which do you prefer?"
+4. Read the SOT repo path from `BOARD_SOT`
+5. If SOT path is a local directory, scan existing structure:
    ```bash
    ls $SOT_PATH/.c3/
    ls $SOT_PATH/docs/ui/a2ui/
    ```
-4. Identify:
-   - **Decisions** — things explicitly agreed on
-   - **Scope** — screens, features, flows, entities discussed
-   - **Open questions** — ambiguous or unresolved points
-   - **Missing context** — things you'd need to generate proper artifacts
 
 ---
 
-## Step 2 — Present Summary (MUST CONFIRM)
+## Step 2 — Map Requirements to Artifacts (MUST CONFIRM)
 
-Post to board chat:
+Review the requirements summary and map each item to SOT artifacts. Post to board chat:
 
 ```markdown
-## 📋 Board Summary
+## 🏗️ Artifact Plan
 
-### Decisions Made
+**Based on:** @sot-reader's confirmed summary
+
+### Requirements → Artifacts
+| Requirement | Artifact | Path |
+|-------------|----------|------|
+| ... | c3 component | `.c3/c3-N-<container>/c3-NNN-<feature>.md` |
+| ... | Screen spec | `docs/ui/a2ui/<feature>.screens.jsonl` |
+| ... | Flow spec | `docs/ui/a2ui/<feature>.flow.jsonl` |
+| ... | API contract | `docs/api/index.md` |
+| ... | Data model | `.c3/refs/ref-data-model.md` |
+
+### Open Questions (from summary)
 - ...
-
-### Scope
-**Screens:** ...
-**Flows:** ...
-**Entities:** ...
-**API changes:** ...
-
-### Open Questions
-- ...
-
-### Proposed Artifacts
-- `.c3/c3-N-<container>/c3-NNN-<feature>.md` — component spec
-- `docs/ui/a2ui/<feature>.screens.jsonl` — screen specs
-- `docs/ui/a2ui/<feature>.flow.jsonl` — flows
-- `docs/api/index.md` — API contract additions
-- `docs/data/` — entity additions to ref-data-model
 
 **Shall I generate these artifacts?** (reply "generate" or tell me what to adjust)
 ```
